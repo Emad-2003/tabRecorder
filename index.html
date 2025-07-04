@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mic + Tab Audio Recorder</title>
+</head>
+<body>
+  <h2>Record Mic + Tab Audio</h2>
+  <button id="start">Start Recording</button>
+  <button id="stop">Stop</button>
+
+  <script>
+    let mediaRecorder;
+    let combinedStream;
+    let audioChunks = [];
+
+    document.getElementById("start").onclick = async () => {
+      try {
+        // 🎤 Get mic audio
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // 🔊 Get tab/system audio via screen share
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          audio: true,
+          video: true  // required to trigger the dialog
+        });
+
+        // 🎛️ Combine both mic and tab audio
+        combinedStream = new MediaStream([
+          ...micStream.getAudioTracks(),
+          ...screenStream.getAudioTracks()
+        ]);
+
+        // 🎙️ Start recording
+        mediaRecorder = new MediaRecorder(combinedStream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = e => {
+          if (e.data.size > 0) {
+            audioChunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(audioChunks, { type: 'audio/webm' });
+          const url = URL.createObjectURL(blob);
+
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'mic-tab-audio.webm';
+          a.textContent = 'Download Combined Audio';
+          document.body.appendChild(a);
+        };
+
+        mediaRecorder.start(500);
+        console.log("🎤🔊 Recording mic + tab audio...");
+      } catch (err) {
+        console.error('❌ Error:', err);
+        alert('Failed to start recording. Did you allow mic and tab audio?');
+      }
+    };
+
+    document.getElementById("stop").onclick = () => {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+        console.log("⏹️ Recording stopped.");
+      }
+
+      // Stop tracks after recording
+      combinedStream?.getTracks().forEach(track => track.stop());
+    };
+  </script>
+</body>
+</html>
